@@ -2,11 +2,9 @@ package com.github.nsbazhenov.skytec.data.model;
 
 import lombok.Data;
 
-import java.util.UUID;
-
 @Data
 public class Player {
-    UUID id;
+    long id;
     String name;
     String login;
     String password;

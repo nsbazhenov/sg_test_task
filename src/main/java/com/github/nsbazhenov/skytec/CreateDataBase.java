@@ -1,5 +1,6 @@
 package com.github.nsbazhenov.skytec;
 
+import com.github.nsbazhenov.skytec.data.status.Error;
 import org.h2.jdbcx.JdbcConnectionPool;
 import org.h2.tools.RunScript;
 import org.slf4j.Logger;
@@ -18,13 +19,15 @@ public class CreateDataBase {
     public static DataSource dataSource(String dbUrl, String dbUser, String dbPass) {
         try {
             JdbcConnectionPool jdbcConnectionPool = JdbcConnectionPool.create(dbUrl, dbUser, dbPass);
+            jdbcConnectionPool.setMaxConnections(60);
             URL resource = Main.class.getResource("/data.sql");
             RunScript.execute(jdbcConnectionPool.getConnection(), new FileReader(new File(resource.toURI())));
 
             LOGGER.info("Date base was successfully created");
 
             return jdbcConnectionPool;
-        } catch (SQLException | URISyntaxException | FileNotFoundException ex) {
+        } catch (SQLException | URISyntaxException | FileNotFoundException exception) {
+            LOGGER.error(Error.ERROR_CREATING_DB, exception.getMessage());
             return null;
         }
     }

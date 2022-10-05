@@ -11,11 +11,8 @@ public class ProjectConfiguration {
     private static final Logger LOGGER = LoggerFactory.getLogger(ProjectConfiguration.class);
 
     private static String DB_URL;
-
     private static String DB_USER;
-
     private static String DB_PASS;
-
     private static String serverPort;
 
     public static void loadConfigurations() {

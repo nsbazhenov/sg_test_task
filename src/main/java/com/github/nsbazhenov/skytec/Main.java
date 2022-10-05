@@ -7,8 +7,6 @@ import com.github.nsbazhenov.skytec.data.repository.PlayerRepository;
 import com.github.nsbazhenov.skytec.service.AuditEventService;
 import com.github.nsbazhenov.skytec.service.ClanService;
 import com.github.nsbazhenov.skytec.service.PlayerService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.sql.DataSource;
 import java.io.IOException;

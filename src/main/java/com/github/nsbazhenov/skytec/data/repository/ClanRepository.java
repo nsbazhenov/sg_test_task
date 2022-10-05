@@ -2,19 +2,23 @@ package com.github.nsbazhenov.skytec.data.repository;
 
 import com.github.nsbazhenov.skytec.data.model.AuditEvent;
 import com.github.nsbazhenov.skytec.data.model.Clan;
+import com.github.nsbazhenov.skytec.data.status.Error;
+import com.github.nsbazhenov.skytec.data.status.Event;
 import com.github.nsbazhenov.skytec.service.AuditEventService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.sql.DataSource;
 import java.sql.*;
-import java.util.UUID;
+import java.util.ArrayList;
+import java.util.List;
 
 public class ClanRepository {
     private static final Logger LOGGER = LoggerFactory.getLogger(ClanRepository.class);
 
-    private static final String GET_CLAN_BY_ID = "SELECT * FROM CLAN WHERE ID = ?;";
+    private static final String GET_CLAN_BY_ID = "SELECT * FROM CLAN WHERE ID = $1";
 
+    private static final String GET_ALL_CLANS = "SELECT * FROM CLAN;";
     private static final String ADD_СLAN_BALANCE = "UPDATE CLAN SET GOLD = GOLD + $1 WHERE ID = $2;";
 
     private static final String TAKE_PLAYER_GOLD = "UPDATE PLAYER SET GOLD = GOLD - $1 WHERE ID = $2 AND (GOLD - $1) >= 0;";
@@ -32,117 +36,161 @@ public class ClanRepository {
         this.auditEventService = auditEventService;
     }
 
-    public Clan getById(UUID clanId) {
+    public Clan getById(long clanId) {
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = connection.prepareStatement(GET_CLAN_BY_ID)) {
 
-            statement.setObject(1, clanId);
+            statement.setLong(1, clanId);
 
             try (ResultSet resultSet = statement.executeQuery()) {
                 Clan clan = resultSetToClan(resultSet);
                 LOGGER.info("Found clan: {}", clan);
 
                 return clan;
-
             } catch (SQLException exception) {
-                LOGGER.error("Error occurred:", exception);
+                LOGGER.error(Error.ERROR_OCCURRED, exception);
+
                 return null;
             }
         } catch (SQLException exception) {
-            LOGGER.error("Error occurred:", exception);
+            LOGGER.error(Error.ERROR_OCCURRED, exception);
+
             return null;
         }
     }
 
-    public Boolean addBalance(UUID clanId, UUID playerId, long value) {
+    public List<Clan> getAll() {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(GET_ALL_CLANS);
+             ResultSet resultSet = statement.executeQuery()) {
+
+            return resultSetToClans(resultSet);
+        } catch (SQLException exception) {
+            LOGGER.error(Error.ERROR_OCCURRED, exception);
+
+            return null;
+        }
+    }
+
+    public Boolean addGold(long clanId, long playerId, long value) {
+        AuditEvent auditEvent = new AuditEvent(Event.ADD_GOLD_TO_THE_CLAN, clanId, playerId);
+
         try (Connection connection = dataSource.getConnection()) {
             connection.setAutoCommit(false);
+            try (PreparedStatement playerStatement = connection.prepareStatement(TAKE_PLAYER_GOLD);
+                 PreparedStatement clanStatement = connection.prepareStatement(ADD_СLAN_BALANCE)) {
 
-            try (PreparedStatement playerStatement = connection.prepareStatement(TAKE_PLAYER_GOLD)) {
-                playerStatement.setObject(1, playerId);
-                playerStatement.setLong(2, value);
+                playerStatement.setLong(1, value);
+                playerStatement.setLong(2, playerId);
+                if (playerStatement.executeUpdate() == 0) {
+                    sendEventToAudit(auditEvent, Error.PLAYER_HAS_NO_MONEY, false);
+                    LOGGER.debug(Error.PLAYER_HAS_NO_MONEY);
 
-                int playerAffectedRows = playerStatement.executeUpdate();
-
-                if (playerAffectedRows == 0) {
-                    LOGGER.debug("The player does not have enough money");
                     return false;
                 }
 
-                try (PreparedStatement clanStatement = connection.prepareStatement(ADD_СLAN_BALANCE)) {
-                    clanStatement.setObject(1, clanId);
-                    clanStatement.setLong(2, value);
+                clanStatement.setLong(1, value);
+                clanStatement.setLong(2, clanId);
+                if (clanStatement.executeUpdate() == 0) {
+                    sendEventToAudit(auditEvent, Error.ERROR_ADD_GOLD, false);
+                    LOGGER.debug(Error.ERROR_ADD_GOLD);
 
-                    int clanAffectedRows = clanStatement.executeUpdate();
-
-                    if (clanAffectedRows == 0) {
-                        LOGGER.debug("Couldn't get the clan to add gold");
-                        return false;
-                    }
-                    connection.commit();
-                    return true;
+                    return false;
                 }
+                connection.commit();
+                sendEventToAudit(auditEvent, Error.NO_ERROR, true);
+
+                return true;
+
             } catch (SQLException exception) {
                 connection.rollback();
-                LOGGER.error("Error occurred:", exception);
+                sendEventToAudit(auditEvent, Error.TRANSACTION_ROLLED_BACK, false);
+                LOGGER.error(Error.TRANSACTION_ROLLED_BACK, exception);
+
                 return false;
             }
         } catch (SQLException exception) {
-            LOGGER.error("Error occurred:", exception);
+            sendEventToAudit(auditEvent, Error.ERROR_OCCURRED, false);
+            LOGGER.error(Error.ERROR_OCCURRED, exception);
+
             return false;
         }
     }
 
-    public Boolean takeGold(UUID clanId, UUID playerId, long value) {
-        AuditEvent auditEvent = new AuditEvent("", clanId, playerId, false);
+    public Boolean takeGold(long clanId, long playerId, long value) {
+        AuditEvent auditEvent = new AuditEvent(Event.TAKE_GOLD_TO_THE_CLAN, clanId, playerId);
 
         try (Connection connection = dataSource.getConnection()) {
             connection.setAutoCommit(false);
 
-            try (PreparedStatement clanStatement = connection.prepareStatement(TAKE_CLAN_GOLD)) {
-                clanStatement.setObject(1, clanId);
-                clanStatement.setLong(2, value);
+            try (PreparedStatement clanStatement = connection.prepareStatement(TAKE_CLAN_GOLD);
+                 PreparedStatement playerStatement = connection.prepareStatement(ADD_PLAYER_BALANCE)) {
 
-                int clanAffectedRows = clanStatement.executeUpdate();
+                clanStatement.setLong(1, value);
+                clanStatement.setLong(2, clanId);
+                if (clanStatement.executeUpdate() == 0) {
+                    sendEventToAudit(auditEvent, Error.CLAN_HAS_NO_MONEY, false);
+                    LOGGER.debug(Error.CLAN_HAS_NO_MONEY);
 
-                if (clanAffectedRows == 0) {
-                    auditEvent.setDescriptionOperation("The clan does not have enough money");
-                    LOGGER.debug("The clan does not have enough money");
                     return false;
                 }
 
-                try (PreparedStatement playerStatement = connection.prepareStatement(ADD_PLAYER_BALANCE)) {
-                    playerStatement.setObject(1, playerId);
-                    playerStatement.setLong(2, value);
+                playerStatement.setLong(1, value);
+                playerStatement.setLong(2, playerId);
+                if (playerStatement.executeUpdate() == 0) {
+                    sendEventToAudit(auditEvent, Error.ERROR_TAKE_GOLD, false);
+                    LOGGER.debug(Error.ERROR_TAKE_GOLD);
 
-                    int playerAffectedRows = playerStatement.executeUpdate();
-
-                    if (playerAffectedRows == 0) {
-                        LOGGER.debug("Couldn't get the player to add gold");
-                        return false;
-                    }
-                    connection.commit();
-                    return true;
+                    return false;
                 }
+
+                connection.commit();
+                sendEventToAudit(auditEvent, Error.NO_ERROR, true);
+
+                return true;
             } catch (SQLException exception) {
                 connection.rollback();
-                auditEvent.setDescriptionOperation("Error occurred:" + exception.getMessage());
-                LOGGER.error("Error occurred:", exception);
+                sendEventToAudit(auditEvent, Error.TRANSACTION_ROLLED_BACK, false);
+                LOGGER.error(Error.TRANSACTION_ROLLED_BACK, exception);
+
                 return false;
             }
         } catch (SQLException exception) {
-            auditEvent.setDescriptionOperation("Error occurred:" + exception.getMessage());
-            LOGGER.error("Error occurred:", exception);
+            sendEventToAudit(auditEvent, Error.ERROR_OCCURRED, false);
+            LOGGER.error(Error.ERROR_OCCURRED, exception);
+
             return false;
         }
     }
 
     private Clan resultSetToClan(ResultSet resultSet) throws SQLException {
         Clan clan = new Clan();
-        clan.setId((UUID) resultSet.getObject("id"));
+        resultSet.first();
+        clan.setId(resultSet.getLong("id"));
         clan.setName(resultSet.getString("name"));
         clan.setGold(resultSet.getLong("gold"));
 
         return clan;
+    }
+
+    private List<Clan> resultSetToClans(ResultSet resultSet) throws SQLException {
+        List<Clan> clans = new ArrayList<>();
+
+        while (resultSet.next()) {
+            Clan clan = new Clan();
+            clan.setId(resultSet.getLong("id"));
+            clan.setName(resultSet.getString("name"));
+            clan.setGold(resultSet.getLong("gold"));
+
+            clans.add(clan);
+        }
+        return clans;
+    }
+
+    private void sendEventToAudit(AuditEvent auditEvent, String description, Boolean result) {
+        auditEvent.setDescriptionOperation(description);
+        auditEvent.setResultOperation(result);
+
+        auditEventService.save(auditEvent);
     }
 }

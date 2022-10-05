@@ -1,4 +1,4 @@
-package com.github.nsbazhenov.skytec;
+package com.github.nsbazhenov.skytec.utils;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -7,8 +7,8 @@ public class HttpUtils {
     private HttpUtils() {
     }
 
-    public static Map<String, String> queryToMap(String query) {
-        if(query == null) {
+    public static Map<String, String> queryParamsToMap(String query) {
+        if (query == null) {
             return null;
         }
         Map<String, String> result = new HashMap<>();
@@ -16,7 +16,7 @@ public class HttpUtils {
             String[] entry = param.split("=");
             if (entry.length > 1) {
                 result.put(entry[0], entry[1]);
-            }else{
+            } else {
                 result.put(entry[0], "");
             }
         }
