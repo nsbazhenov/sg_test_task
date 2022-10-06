@@ -2,6 +2,12 @@ package com.github.nsbazhenov.skytec.data.model;
 
 import lombok.Data;
 
+/**
+ * Entity of the player.
+ *
+ * @author Bazhenov Nikita
+ *
+ */
 @Data
 public class Player {
     long id;

@@ -2,6 +2,11 @@ package com.github.nsbazhenov.skytec.data.model;
 
 import lombok.Data;
 
+/**
+ * Entity of the audit event.
+ *
+ * @author Bazhenov Nikita
+ */
 @Data
 public class AuditEvent {
     long id;
@@ -10,6 +15,9 @@ public class AuditEvent {
     long playerId;
     Boolean resultOperation;
     String descriptionOperation;
+
+    public AuditEvent() {
+    }
 
     public AuditEvent(String eventType, long clanId, long playerId) {
         this.eventType = eventType;

@@ -7,6 +7,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
 
+/**
+ * Configuration operation interface.
+ *
+ * @author Bazhenov Nikita
+ *
+ */
 public class ProjectConfiguration {
     private static final Logger LOGGER = LoggerFactory.getLogger(ProjectConfiguration.class);
 
@@ -15,6 +21,9 @@ public class ProjectConfiguration {
     private static String DB_PASS;
     private static String serverPort;
 
+    /**
+     * Loading configurations.
+     */
     public static void loadConfigurations() {
         try (InputStream inputStream = ProjectConfiguration.class
                 .getClassLoader()

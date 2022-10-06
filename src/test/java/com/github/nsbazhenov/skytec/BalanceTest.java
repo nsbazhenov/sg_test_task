@@ -22,6 +22,9 @@ public class BalanceTest {
     private PlayerRepository playerRepository;
     private ExecutorService executorService;
     private int nThreads;
+    private long clanId;
+    private long playerId;
+    private long value;
 
     @Before
     public void setup() {
@@ -37,14 +40,13 @@ public class BalanceTest {
         playerRepository = new PlayerRepository(dataSource);
 
         executorService = Executors.newFixedThreadPool(nThreads);
+
+        clanId = 1L;
+        playerId = 1L;
+        value = 10L;
     }
-
-    @Test
+   @Test
     public void concurrentAddGoldUpdate() throws Exception {
-        long clanId = 1L;
-        long playerId = 1L;
-        long value = 10L;
-
         for (int i = 0; i < nThreads; i++) {
             executorService.execute(() -> {
                 for (int j = 0; j < 1000; j++) {
@@ -65,10 +67,6 @@ public class BalanceTest {
 
     @Test
     public void concurrentTakeGoldUpdate() throws Exception {
-        long clanId = 1L;
-        long playerId = 1L;
-        long value = 10L;
-
         for (int i = 0; i < nThreads; i++) {
             executorService.execute(() -> {
                 for (int j = 0; j < 1000; j++) {

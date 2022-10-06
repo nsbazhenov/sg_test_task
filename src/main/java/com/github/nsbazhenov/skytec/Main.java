@@ -11,6 +11,12 @@ import com.github.nsbazhenov.skytec.service.PlayerService;
 import javax.sql.DataSource;
 import java.io.IOException;
 
+/**
+ * A program which for working with clan and player gold.
+ *
+ * @author Bazhenov Nikita
+ *
+ */
 public class Main {
     public static void main(String[] args) throws IOException {
         ProjectConfiguration.loadConfigurations();
@@ -27,6 +33,7 @@ public class Main {
 
         Server server = Server.createServer(clanService, playerService, serverPort);
         server.start();
+
         Runtime.getRuntime().addShutdownHook(new Thread(server::stop));
     }
 }

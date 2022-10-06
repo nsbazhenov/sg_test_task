@@ -1,5 +1,11 @@
 package com.github.nsbazhenov.skytec.data.status;
 
+/**
+ * List of errors that occur.
+ *
+ * @author Bazhenov Nikita
+ *
+ */
 public class Error {
     public static final String ERROR_OCCURRED = "Error occurred: ";
     public static final String TRANSACTION_ROLLED_BACK = "Transaction is being rolled back: ";

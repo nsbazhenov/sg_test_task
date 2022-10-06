@@ -8,21 +8,27 @@ import org.slf4j.LoggerFactory;
 import javax.sql.DataSource;
 import java.sql.*;
 
+/**
+ * Repository for working with the audit.
+ *
+ * @author Bazhenov Nikita
+ *
+ */
 public class AuditEventsRepository {
     private static final Logger LOGGER = LoggerFactory.getLogger(AuditEventsRepository.class);
 
     private static final String SAVE_AUDIT_EVENTS =
             "INSERT INTO AUDIT_EVENTS (EVENT_TYPE, ID_CLAN, ID_PLAYER, RESULT_OPERATION, DESCRIPTION_OPERATION) VALUES (?, ?, ?, ?, ?);";
 
-    private final DataSource dataSource;
-
     public AuditEventsRepository(DataSource dataSource) {
-        this.dataSource = dataSource;
     }
 
-    public AuditEvent save(AuditEvent auditEvent) {
-        try (Connection connection = dataSource.getConnection();
-             PreparedStatement statement = connection.prepareStatement(SAVE_AUDIT_EVENTS)) {
+    /**
+     * Processing method of saving audit event.
+     */
+    public AuditEvent save(AuditEvent auditEvent, Connection connection) {
+        try (PreparedStatement statement = connection.prepareStatement(SAVE_AUDIT_EVENTS,
+                     Statement.RETURN_GENERATED_KEYS)) {
 
             statement.setString(1, auditEvent.getEventType());
             statement.setLong(2, auditEvent.getClanId());

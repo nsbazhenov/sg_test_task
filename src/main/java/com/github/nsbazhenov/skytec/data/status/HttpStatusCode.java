@@ -1,5 +1,11 @@
 package com.github.nsbazhenov.skytec.data.status;
 
+/**
+ * List of http codes.
+ *
+ * @author Bazhenov Nikita
+ *
+ */
 public enum HttpStatusCode {
     //2xx: Success
     OK(200, "OK"),

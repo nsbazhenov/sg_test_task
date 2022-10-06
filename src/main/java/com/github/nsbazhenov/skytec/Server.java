@@ -22,6 +22,12 @@ import java.util.Map;
 import static com.github.nsbazhenov.skytec.utils.HttpUtils.queryParamsToMap;
 import static java.util.Objects.nonNull;
 
+/**
+ * Http server operation interface.
+ *
+ * @author Bazhenov Nikita
+ *
+ */
 public class Server {
     private static final Logger LOGGER = LoggerFactory.getLogger(Server.class);
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
@@ -32,6 +38,9 @@ public class Server {
         this.httpServer = httpServer;
     }
 
+    /**
+     * Creating the http server.
+     */
     public static Server createServer(ClanService clanService, PlayerService playerService, int serverPort) throws IOException {
         HttpServer httpServer = HttpServer.create(new InetSocketAddress(serverPort), 0);
         httpServer.createContext("/clan", exchange -> getClanById(exchange, clanService));
@@ -45,14 +54,23 @@ public class Server {
         return new Server(httpServer);
     }
 
+    /**
+     * Open the http server.
+     */
     public void start() {
         httpServer.start();
     }
 
+    /**
+     * Closed the http server.
+     */
     public void stop() {
         httpServer.stop(5);
     }
 
+    /**
+     * Processing method of getting the clan by ID.
+     */
     private static void getClanById(HttpExchange exchange, ClanService clanService) throws IOException {
         if ("GET".equals(exchange.getRequestMethod())) {
             Map<String, String> params = queryParamsToMap(exchange.getRequestURI().getRawQuery());
@@ -83,6 +101,9 @@ public class Server {
         exchange.close();
     }
 
+    /**
+     * Processing method of getting clans.
+     */
     private static void getAllClans(HttpExchange exchange, ClanService clanService) throws IOException {
         if ("GET".equals(exchange.getRequestMethod())) {
             List<Clan> clans = clanService.getAll();
@@ -111,6 +132,9 @@ public class Server {
         exchange.close();
     }
 
+    /**
+     * Processing method of adding gold to the clan.
+     */
     private static void addGold(HttpExchange exchange, ClanService clanService) throws IOException {
         if ("POST".equals(exchange.getRequestMethod())) {
             AddClanBalanceRq request = OBJECT_MAPPER.readValue(exchange.getRequestBody(), AddClanBalanceRq.class);
@@ -136,6 +160,9 @@ public class Server {
         exchange.close();
     }
 
+    /**
+     * Method of processing the reduction of gold to the clan.
+     */
     private static void takeGold(HttpExchange exchange, ClanService clanService) throws IOException {
         if ("POST".equals(exchange.getRequestMethod())) {
             TakeClanGoldRq request = OBJECT_MAPPER.readValue(exchange.getRequestBody(), TakeClanGoldRq.class);
@@ -161,6 +188,9 @@ public class Server {
         exchange.close();
     }
 
+    /**
+     * Processing method of getting the player by ID.
+     */
     private static void getPlayerById(HttpExchange exchange, PlayerService playerService) throws IOException {
         if ("GET".equals(exchange.getRequestMethod())) {
             Map<String, String> params = queryParamsToMap(exchange.getRequestURI().getRawQuery());

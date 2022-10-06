@@ -13,17 +13,23 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Repository for working with the сlan.
+ *
+ * @author Bazhenov Nikita
+ *
+ */
 public class ClanRepository {
     private static final Logger LOGGER = LoggerFactory.getLogger(ClanRepository.class);
 
     private static final String GET_CLAN_BY_ID = "SELECT * FROM CLAN WHERE ID = $1";
 
     private static final String GET_ALL_CLANS = "SELECT * FROM CLAN;";
-    private static final String ADD_СLAN_BALANCE = "UPDATE CLAN SET GOLD = GOLD + $1 WHERE ID = $2;";
+    private static final String ADD_CLAN_GOLD = "UPDATE CLAN SET GOLD = GOLD + $1 WHERE ID = $2;";
 
     private static final String TAKE_PLAYER_GOLD = "UPDATE PLAYER SET GOLD = GOLD - $1 WHERE ID = $2 AND (GOLD - $1) >= 0;";
 
-    private static final String ADD_PLAYER_BALANCE = "UPDATE PLAYER SET GOLD = GOLD + $1 WHERE ID = $2;";
+    private static final String ADD_PLAYER_GOLD = "UPDATE PLAYER SET GOLD = GOLD + $1 WHERE ID = $2;";
 
     private static final String TAKE_CLAN_GOLD = "UPDATE CLAN SET GOLD = GOLD - $1 WHERE ID = $2 AND (GOLD - $1) >= 0;";
 
@@ -36,6 +42,9 @@ public class ClanRepository {
         this.auditEventService = auditEventService;
     }
 
+    /**
+     * Processing method of getting the clan by ID.
+     */
     public Clan getById(long clanId) {
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = connection.prepareStatement(GET_CLAN_BY_ID)) {
@@ -59,6 +68,9 @@ public class ClanRepository {
         }
     }
 
+    /**
+     * Processing method of getting clans.
+     */
     public List<Clan> getAll() {
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = connection.prepareStatement(GET_ALL_CLANS);
@@ -72,18 +84,21 @@ public class ClanRepository {
         }
     }
 
+    /**
+     * Processing method of adding gold to the clan.
+     */
     public Boolean addGold(long clanId, long playerId, long value) {
         AuditEvent auditEvent = new AuditEvent(Event.ADD_GOLD_TO_THE_CLAN, clanId, playerId);
 
         try (Connection connection = dataSource.getConnection()) {
             connection.setAutoCommit(false);
             try (PreparedStatement playerStatement = connection.prepareStatement(TAKE_PLAYER_GOLD);
-                 PreparedStatement clanStatement = connection.prepareStatement(ADD_СLAN_BALANCE)) {
+                 PreparedStatement clanStatement = connection.prepareStatement(ADD_CLAN_GOLD)) {
 
                 playerStatement.setLong(1, value);
                 playerStatement.setLong(2, playerId);
                 if (playerStatement.executeUpdate() == 0) {
-                    sendEventToAudit(auditEvent, Error.PLAYER_HAS_NO_MONEY, false);
+                    sendEventToAudit(connection, auditEvent, Error.PLAYER_HAS_NO_MONEY, false);
                     LOGGER.debug(Error.PLAYER_HAS_NO_MONEY);
 
                     return false;
@@ -91,32 +106,35 @@ public class ClanRepository {
 
                 clanStatement.setLong(1, value);
                 clanStatement.setLong(2, clanId);
-                if (clanStatement.executeUpdate() == 0) {
-                    sendEventToAudit(auditEvent, Error.ERROR_ADD_GOLD, false);
+                int i = clanStatement.executeUpdate();
+
+                if (i == 0) {
+                    sendEventToAudit(connection, auditEvent, Error.ERROR_ADD_GOLD, false);
                     LOGGER.debug(Error.ERROR_ADD_GOLD);
 
                     return false;
                 }
+                sendEventToAudit(connection,auditEvent, Error.NO_ERROR, true);
                 connection.commit();
-                sendEventToAudit(auditEvent, Error.NO_ERROR, true);
-
                 return true;
 
             } catch (SQLException exception) {
                 connection.rollback();
-                sendEventToAudit(auditEvent, Error.TRANSACTION_ROLLED_BACK, false);
+                sendEventToAudit(connection, auditEvent, Error.TRANSACTION_ROLLED_BACK, false);
                 LOGGER.error(Error.TRANSACTION_ROLLED_BACK, exception);
 
                 return false;
             }
         } catch (SQLException exception) {
-            sendEventToAudit(auditEvent, Error.ERROR_OCCURRED, false);
             LOGGER.error(Error.ERROR_OCCURRED, exception);
 
             return false;
         }
     }
 
+    /**
+     * Method of processing the reduction of gold to the clan.
+     */
     public Boolean takeGold(long clanId, long playerId, long value) {
         AuditEvent auditEvent = new AuditEvent(Event.TAKE_GOLD_TO_THE_CLAN, clanId, playerId);
 
@@ -124,12 +142,12 @@ public class ClanRepository {
             connection.setAutoCommit(false);
 
             try (PreparedStatement clanStatement = connection.prepareStatement(TAKE_CLAN_GOLD);
-                 PreparedStatement playerStatement = connection.prepareStatement(ADD_PLAYER_BALANCE)) {
+                 PreparedStatement playerStatement = connection.prepareStatement(ADD_PLAYER_GOLD)) {
 
                 clanStatement.setLong(1, value);
                 clanStatement.setLong(2, clanId);
                 if (clanStatement.executeUpdate() == 0) {
-                    sendEventToAudit(auditEvent, Error.CLAN_HAS_NO_MONEY, false);
+                    sendEventToAudit(connection, auditEvent, Error.CLAN_HAS_NO_MONEY, false);
                     LOGGER.debug(Error.CLAN_HAS_NO_MONEY);
 
                     return false;
@@ -138,25 +156,24 @@ public class ClanRepository {
                 playerStatement.setLong(1, value);
                 playerStatement.setLong(2, playerId);
                 if (playerStatement.executeUpdate() == 0) {
-                    sendEventToAudit(auditEvent, Error.ERROR_TAKE_GOLD, false);
+                    sendEventToAudit(connection, auditEvent, Error.ERROR_TAKE_GOLD, false);
                     LOGGER.debug(Error.ERROR_TAKE_GOLD);
 
                     return false;
                 }
 
                 connection.commit();
-                sendEventToAudit(auditEvent, Error.NO_ERROR, true);
+                sendEventToAudit(connection, auditEvent, Error.NO_ERROR, true);
 
                 return true;
             } catch (SQLException exception) {
                 connection.rollback();
-                sendEventToAudit(auditEvent, Error.TRANSACTION_ROLLED_BACK, false);
+                sendEventToAudit(connection, auditEvent, Error.TRANSACTION_ROLLED_BACK, false);
                 LOGGER.error(Error.TRANSACTION_ROLLED_BACK, exception);
 
                 return false;
             }
         } catch (SQLException exception) {
-            sendEventToAudit(auditEvent, Error.ERROR_OCCURRED, false);
             LOGGER.error(Error.ERROR_OCCURRED, exception);
 
             return false;
@@ -187,10 +204,10 @@ public class ClanRepository {
         return clans;
     }
 
-    private void sendEventToAudit(AuditEvent auditEvent, String description, Boolean result) {
+    private void sendEventToAudit(Connection connection, AuditEvent auditEvent, String description, Boolean result) {
         auditEvent.setDescriptionOperation(description);
         auditEvent.setResultOperation(result);
 
-        auditEventService.save(auditEvent);
+        auditEventService.save(auditEvent, connection);
     }
 }

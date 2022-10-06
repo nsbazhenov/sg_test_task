@@ -11,6 +11,12 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+/**
+ * Repository for working with the player.
+ *
+ * @author Bazhenov Nikita
+ *
+ */
 public class PlayerRepository {
     private static final Logger LOGGER = LoggerFactory.getLogger(PlayerRepository.class);
 
@@ -22,6 +28,9 @@ public class PlayerRepository {
         this.dataSource = dataSource;
     }
 
+    /**
+     * Processing method of getting the player by ID.
+     */
     public Player getById(long playerId) {
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = connection.prepareStatement(GET_PLAYER_BY_ID)) {
