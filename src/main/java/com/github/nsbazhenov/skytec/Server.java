@@ -2,6 +2,7 @@ package com.github.nsbazhenov.skytec;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
+import com.fasterxml.jackson.databind.exc.ValueInstantiationException;
 import com.github.nsbazhenov.skytec.data.transfer.AddClanBalanceRq;
 import com.github.nsbazhenov.skytec.data.model.Clan;
 import com.github.nsbazhenov.skytec.data.model.Player;
@@ -26,7 +27,6 @@ import static java.util.Objects.nonNull;
  * Http server operation interface.
  *
  * @author Bazhenov Nikita
- *
  */
 public class Server {
     private static final Logger LOGGER = LoggerFactory.getLogger(Server.class);
@@ -72,153 +72,184 @@ public class Server {
      * Processing method of getting the clan by ID.
      */
     private static void getClanById(HttpExchange exchange, ClanService clanService) throws IOException {
-        if ("GET".equals(exchange.getRequestMethod())) {
-            Map<String, String> params = queryParamsToMap(exchange.getRequestURI().getRawQuery());
-            long clanId = Long.parseLong(params.get("id"));
-            Clan clan = clanService.getById(clanId);
+        try {
+            if ("GET".equals(exchange.getRequestMethod())) {
+                Map<String, String> params = queryParamsToMap(exchange.getRequestURI().getRawQuery());
+                long clanId = Long.parseLong(params.get("id"));
+                Clan clan = clanService.getById(clanId);
 
-            LOGGER.debug("Request for detailed information about the clan, id - {}", clanId);
+                LOGGER.debug("Request for detailed information about the clan, id - {}", clanId);
 
-            String response = OBJECT_WRITER.writeValueAsString(clan);
+                String response = OBJECT_WRITER.writeValueAsString(clan);
 
-            if (nonNull(clan)) {
-                exchange.getResponseHeaders().set("Content-Type", "application/json");
-                exchange.sendResponseHeaders(HttpStatusCode.OK.getValue(), response.getBytes().length);
+                if (nonNull(clan)) {
+                    exchange.getResponseHeaders().set("Content-Type", "application/json");
+                    exchange.sendResponseHeaders(HttpStatusCode.OK.getValue(), response.getBytes().length);
+                } else {
+                    exchange.sendResponseHeaders(HttpStatusCode.NOT_FOUND.getValue(), -1);
+                    LOGGER.error(HttpStatusCode.NOT_FOUND.toString());
+                }
+
+                OutputStream output = exchange.getResponseBody();
+                output.write(response.getBytes());
+                output.flush();
+
+                LOGGER.debug("Response for detailed information about the clan - {}", response);
             } else {
-                exchange.sendResponseHeaders(HttpStatusCode.NOT_FOUND.getValue(), -1);
-                LOGGER.error(HttpStatusCode.NOT_FOUND.toString());
+                exchange.sendResponseHeaders(HttpStatusCode.METHOD_NOT_ALLOWED.getValue(), -1);
+                LOGGER.error(HttpStatusCode.METHOD_NOT_ALLOWED.toString());
             }
-
-            OutputStream output = exchange.getResponseBody();
-            output.write(response.getBytes());
-            output.flush();
-
-            LOGGER.debug("Response for detailed information about the clan - {}", response);
-        } else {
-            exchange.sendResponseHeaders(HttpStatusCode.METHOD_NOT_ALLOWED.getValue(), -1);
-            LOGGER.error(HttpStatusCode.METHOD_NOT_ALLOWED.toString());
+            exchange.close();
+        } catch (ValueInstantiationException exception) {
+            exchange.sendResponseHeaders(HttpStatusCode.BAD_REQUEST.getValue(), -1);
+        } catch (Throwable throwable) {
+            exchange.sendResponseHeaders(HttpStatusCode.INTERNAL_SERVER_ERROR.getValue(), -1);
         }
-        exchange.close();
     }
 
     /**
      * Processing method of getting clans.
      */
     private static void getAllClans(HttpExchange exchange, ClanService clanService) throws IOException {
-        if ("GET".equals(exchange.getRequestMethod())) {
-            List<Clan> clans = clanService.getAll();
+        try {
+            if ("GET".equals(exchange.getRequestMethod())) {
+                List<Clan> clans = clanService.getAll();
 
-            LOGGER.debug("Request for all clans");
+                LOGGER.debug("Request for all clans");
 
-            String response = OBJECT_WRITER.writeValueAsString(clans);
+                String response = OBJECT_WRITER.writeValueAsString(clans);
 
-            if (nonNull(clans)) {
-                exchange.getResponseHeaders().set("Content-Type", "application/json");
-                exchange.sendResponseHeaders(HttpStatusCode.OK.getValue(), response.getBytes().length);
+                if (nonNull(clans)) {
+                    exchange.getResponseHeaders().set("Content-Type", "application/json");
+                    exchange.sendResponseHeaders(HttpStatusCode.OK.getValue(), response.getBytes().length);
+                } else {
+                    exchange.sendResponseHeaders(HttpStatusCode.NOT_FOUND.getValue(), -1);
+                    LOGGER.error(HttpStatusCode.NOT_FOUND.toString());
+                }
+
+                OutputStream output = exchange.getResponseBody();
+                output.write(response.getBytes());
+                output.flush();
+
+                LOGGER.debug("Request for all clans, {}", response);
             } else {
-                exchange.sendResponseHeaders(HttpStatusCode.NOT_FOUND.getValue(), -1);
-                LOGGER.error(HttpStatusCode.NOT_FOUND.toString());
+                exchange.sendResponseHeaders(HttpStatusCode.METHOD_NOT_ALLOWED.getValue(), -1);
+                LOGGER.error(HttpStatusCode.METHOD_NOT_ALLOWED.toString());
             }
-
-            OutputStream output = exchange.getResponseBody();
-            output.write(response.getBytes());
-            output.flush();
-
-            LOGGER.debug("Request for all clans, {}", response);
-        } else {
-            exchange.sendResponseHeaders(HttpStatusCode.METHOD_NOT_ALLOWED.getValue(), -1);
-            LOGGER.error(HttpStatusCode.METHOD_NOT_ALLOWED.toString());
+            exchange.close();
+        } catch (ValueInstantiationException exception) {
+            exchange.sendResponseHeaders(HttpStatusCode.BAD_REQUEST.getValue(), -1);
+        } catch (Throwable throwable) {
+            exchange.sendResponseHeaders(HttpStatusCode.INTERNAL_SERVER_ERROR.getValue(), -1);
         }
-        exchange.close();
     }
 
     /**
      * Processing method of adding gold to the clan.
      */
     private static void addGold(HttpExchange exchange, ClanService clanService) throws IOException {
-        if ("POST".equals(exchange.getRequestMethod())) {
-            AddClanBalanceRq request = OBJECT_MAPPER.readValue(exchange.getRequestBody(), AddClanBalanceRq.class);
-            Boolean result = clanService.addBalance(request);
+        try {
+            if ("POST".equals(exchange.getRequestMethod())) {
+                AddClanBalanceRq request = OBJECT_MAPPER.readValue(exchange.getRequestBody(), AddClanBalanceRq.class);
+                Boolean result = clanService.addBalance(request);
 
-            LOGGER.debug("Request to add the gold of the clan id - {}, by player - {}, amount - {}, result - {}",
-                    request.getClanId(), request.getPlayerId(), request.getValue(), result);
+                LOGGER.debug("Request to add the gold of the clan id - {}, by player - {}, amount - {}, result - {}",
+                        request.getClanId(), request.getPlayerId(), request.getValue(), result);
 
-            String response = OBJECT_WRITER.writeValueAsString(result);
+                String response = OBJECT_WRITER.writeValueAsString(result);
 
-            exchange.getResponseHeaders().set("Content-Type", "application/json");
-            exchange.sendResponseHeaders(HttpStatusCode.NOT_FOUND.getValue(), response.getBytes().length);
+                exchange.getResponseHeaders().set("Content-Type", "application/json");
+                exchange.sendResponseHeaders(HttpStatusCode.NOT_FOUND.getValue(), response.getBytes().length);
 
-            OutputStream output = exchange.getResponseBody();
-            output.write(response.getBytes());
-            output.flush();
+                OutputStream output = exchange.getResponseBody();
+                output.write(response.getBytes());
+                output.flush();
 
-            LOGGER.debug("Response to add the gold of the clan - {}", response);
-        } else {
-            exchange.sendResponseHeaders(HttpStatusCode.METHOD_NOT_ALLOWED.getValue(), -1);
-            LOGGER.error(HttpStatusCode.METHOD_NOT_ALLOWED.toString());
+                LOGGER.debug("Response to add the gold of the clan - {}", response);
+
+            } else {
+                exchange.sendResponseHeaders(HttpStatusCode.METHOD_NOT_ALLOWED.getValue(), -1);
+                LOGGER.error(HttpStatusCode.METHOD_NOT_ALLOWED.toString());
+            }
+            exchange.close();
+        } catch (ValueInstantiationException exception) {
+            exchange.sendResponseHeaders(HttpStatusCode.BAD_REQUEST.getValue(), -1);
+        } catch (Throwable throwable) {
+            exchange.sendResponseHeaders(HttpStatusCode.INTERNAL_SERVER_ERROR.getValue(), -1);
         }
-        exchange.close();
     }
 
     /**
      * Method of processing the reduction of gold to the clan.
      */
     private static void takeGold(HttpExchange exchange, ClanService clanService) throws IOException {
-        if ("POST".equals(exchange.getRequestMethod())) {
-            TakeClanGoldRq request = OBJECT_MAPPER.readValue(exchange.getRequestBody(), TakeClanGoldRq.class);
-            Boolean result = clanService.takeAwayBalance(request);
+        try {
+            if ("POST".equals(exchange.getRequestMethod())) {
+                TakeClanGoldRq request = OBJECT_MAPPER.readValue(exchange.getRequestBody(), TakeClanGoldRq.class);
+                Boolean result = clanService.takeAwayBalance(request);
 
-            LOGGER.debug("Request to reduce the gold of the clan - {}, from the player - {}, amount - {}, result - {}",
-                    request.getClanId(), request.getPlayerId(), request.getValue(), result);
+                LOGGER.debug("Request to reduce the gold of the clan - {}, from the player - {}, amount - {}, result - {}",
+                        request.getClanId(), request.getPlayerId(), request.getValue(), result);
 
-            String response = OBJECT_WRITER.writeValueAsString(result);
+                String response = OBJECT_WRITER.writeValueAsString(result);
 
-            exchange.getResponseHeaders().set("Content-Type", "application/json");
-            exchange.sendResponseHeaders(HttpStatusCode.NOT_FOUND.getValue(), response.getBytes().length);
+                exchange.getResponseHeaders().set("Content-Type", "application/json");
+                exchange.sendResponseHeaders(HttpStatusCode.NOT_FOUND.getValue(), response.getBytes().length);
 
-            OutputStream output = exchange.getResponseBody();
-            output.write(response.getBytes());
-            output.flush();
+                OutputStream output = exchange.getResponseBody();
+                output.write(response.getBytes());
+                output.flush();
 
-            LOGGER.debug("Response to reduce the gold of the clan - {}", result);
-        } else {
-            exchange.sendResponseHeaders(HttpStatusCode.METHOD_NOT_ALLOWED.getValue(), -1);
-            LOGGER.error(HttpStatusCode.METHOD_NOT_ALLOWED.toString());
+                LOGGER.debug("Response to reduce the gold of the clan - {}", result);
+            } else {
+                exchange.sendResponseHeaders(HttpStatusCode.METHOD_NOT_ALLOWED.getValue(), -1);
+                LOGGER.error(HttpStatusCode.METHOD_NOT_ALLOWED.toString());
+            }
+            exchange.close();
+        } catch (ValueInstantiationException exception) {
+            exchange.sendResponseHeaders(HttpStatusCode.BAD_REQUEST.getValue(), -1);
+        } catch (Throwable throwable) {
+            exchange.sendResponseHeaders(HttpStatusCode.INTERNAL_SERVER_ERROR.getValue(), -1);
         }
-        exchange.close();
     }
 
     /**
      * Processing method of getting the player by ID.
      */
     private static void getPlayerById(HttpExchange exchange, PlayerService playerService) throws IOException {
-        if ("GET".equals(exchange.getRequestMethod())) {
-            Map<String, String> params = queryParamsToMap(exchange.getRequestURI().getRawQuery());
-            long playerId = Long.parseLong(params.get("id"));
+        try {
+            if ("GET".equals(exchange.getRequestMethod())) {
+                Map<String, String> params = queryParamsToMap(exchange.getRequestURI().getRawQuery());
+                long playerId = Long.parseLong(params.get("id"));
 
-            LOGGER.debug("Request for detailed information about the player, id - {}", playerId);
+                LOGGER.debug("Request for detailed information about the player, id - {}", playerId);
 
-            Player player = playerService.getById(playerId);
+                Player player = playerService.getById(playerId);
 
-            String response = OBJECT_WRITER.writeValueAsString(player);
+                String response = OBJECT_WRITER.writeValueAsString(player);
 
-            if (nonNull(player)) {
-                exchange.getResponseHeaders().set("Content-Type", "application/json");
-                exchange.sendResponseHeaders(HttpStatusCode.OK.getValue(), response.getBytes().length);
+                if (nonNull(player)) {
+                    exchange.getResponseHeaders().set("Content-Type", "application/json");
+                    exchange.sendResponseHeaders(HttpStatusCode.OK.getValue(), response.getBytes().length);
+                } else {
+                    exchange.sendResponseHeaders(HttpStatusCode.NOT_FOUND.getValue(), -1);
+                    LOGGER.error(HttpStatusCode.NOT_FOUND.toString());
+                }
+
+                OutputStream output = exchange.getResponseBody();
+                output.write(response.getBytes());
+                output.flush();
+
+                LOGGER.debug("Response for detailed information about the clan - {}", response);
             } else {
-                exchange.sendResponseHeaders(HttpStatusCode.NOT_FOUND.getValue(), -1);
-                LOGGER.error(HttpStatusCode.NOT_FOUND.toString());
+                exchange.sendResponseHeaders(HttpStatusCode.METHOD_NOT_ALLOWED.getValue(), -1);
+                LOGGER.error(HttpStatusCode.METHOD_NOT_ALLOWED.toString());
             }
-
-            OutputStream output = exchange.getResponseBody();
-            output.write(response.getBytes());
-            output.flush();
-
-            LOGGER.debug("Response for detailed information about the clan - {}", response);
-        } else {
-            exchange.sendResponseHeaders(HttpStatusCode.METHOD_NOT_ALLOWED.getValue(), -1);
-            LOGGER.error(HttpStatusCode.METHOD_NOT_ALLOWED.toString());
+            exchange.close();
+        } catch (ValueInstantiationException exception) {
+            exchange.sendResponseHeaders(HttpStatusCode.BAD_REQUEST.getValue(), -1);
+        } catch (Throwable throwable) {
+            exchange.sendResponseHeaders(HttpStatusCode.INTERNAL_SERVER_ERROR.getValue(), -1);
         }
-        exchange.close();
     }
 }
